@@ -2,46 +2,59 @@
 
 ## Project Overview
 
-This project implements and compares three multimodal learning approaches for bidirectional image–text retrieval using the COCO 2017 Captions dataset.
+This project implements and evaluates three multimodal learning approaches for bidirectional image–text retrieval using the COCO 2017 Captions dataset.
 
 The system supports two retrieval tasks:
-- **Image-to-Text:** Retrieve relevant captions given an image.
-- **Text-to-Image:** Retrieve relevant images given a caption.
+- **Image-to-Text:** Retrieve relevant captions for a given image.
+- **Text-to-Image:** Retrieve relevant images for a given caption.
 
-The objective is to evaluate retrieval accuracy, generalisation, computational efficiency, and the effectiveness of different multimodal fusion techniques.
+The objective is to compare retrieval accuracy, generalisation, and the effectiveness of different multimodal learning approaches.
 
 ## Dataset and Preprocessing
 
 - **Dataset:** [COCO-Caption2017](https://huggingface.co/datasets/lmms-lab/COCO-Caption2017)
-- **Source split:** Validation (5,000 images)
+- **Source split:** Validation, containing 5,000 images
 - **Training:** 4,000 images
 - **Validation:** 500 images
 - **Testing:** 500 images
 
-Caption cleaning, duplicate analysis, image-disjoint splitting, and feature alignment checks are performed.
+Preprocessing includes caption cleaning, duplicate analysis, image-disjoint splitting, and image–caption alignment verification.
 
-Pretrained ResNet-50 extracts 2,048-dimensional image features, while mean-pooled BERT extracts 768-dimensional text features. Both encoders remain frozen, and their extracted features are shared across the models.
+Two pretrained encoders extract features:
+- **ResNet-50:** 2,048-dimensional image features
+- **BERT (bert-base-uncased):** 768-dimensional mean-pooled text features
+
+Both encoders remain frozen. The same extracted features and dataset splits are used across all three models.
 
 ## Implemented Models
 
 ### Model A: InfoNCE
-Uses separate trainable projections into a shared 256-dimensional embedding space, optimised using symmetric InfoNCE contrastive loss.
 
-### Model B: Triplet Ranking
-Uses the same projection architecture with a margin-based ranking objective. Different ranking-loss configurations and margins are evaluated.
+Uses separate linear projections to map image and text features into a shared 256-dimensional embedding space. Training uses symmetric InfoNCE contrastive loss with temperature scaling.
+
+### Model B: Hard-Negative Triplet Ranking
+
+Uses shared-space image and text projections trained with a bidirectional hard-negative ranking loss. Margin values of 0.1, 0.2, and 0.3 are evaluated using validation performance.
 
 ### Model C: Early Fusion
-Concatenates image and text features and uses a multilayer perceptron (MLP) to predict image–caption compatibility.
+
+Projects image and text features separately, concatenates their representations, and applies a multilayer perceptron (MLP) to predict image–caption compatibility.
+
+Training uses positive pairs and sampled negative pairs. Dropout values of 0.0 and 0.2 are compared.
 
 ## Experimental Setup
 
-- Three random seeds: 42, 43, 44
-- Image-disjoint training, validation, and test splits
-- Shared frozen features across all models
-- Validation-based checkpoint selection
-- Evaluation in both retrieval directions
+- **Random seeds:** 42, 43, 44
+- **Projection dimension:** 256
+- **Batch size:** 128
+- **Optimiser:** AdamW
+- **Learning rate:** 0.001
+- **Maximum epochs:** 30
+- **Early stopping patience:** 7
 
-Performance is measured using Recall@1, Recall@5, Recall@10, and Mean Reciprocal Rank (MRR). The experiments also examine overfitting, retrieval failures, and computational efficiency.
+Checkpoints and model configurations are selected using validation performance. The held-out test set is used for final evaluation.
+
+Retrieval is evaluated in both directions using Recall@1, Recall@5, Recall@10, and Mean Reciprocal Rank (MRR). Duplicate-caption ambiguity is accounted for during evaluation.
 
 ## Held-Out Test Results
 
@@ -49,20 +62,22 @@ Average Recall@1 across three random seeds:
 
 | Model | Image-to-Text | Text-to-Image |
 |---|---:|---:|
-| InfoNCE | 38.27% | 30.32% |
-| Triplet Ranking | 40.73% | 30.40% |
-| Early Fusion | 4.47% | 4.93% |
+| **InfoNCE** | **38.27%** | **30.32%** |
+| Triplet Ranking | 37.07% | 29.79% |
+| Early Fusion | 5.07% | 4.53% |
 
-Triplet Ranking achieves the highest average Recall@1, with performance close to InfoNCE. Early Fusion performs substantially worse, highlighting the importance of the alignment objective and retrieval architecture.
+InfoNCE achieves the highest average Recall@1 in both retrieval directions, followed closely by Triplet Ranking.
+
+Early Fusion performs substantially worse, suggesting that learning pairwise compatibility through an MLP is less effective than shared-embedding alignment for this experimental setup.
 
 ## How to Run
 
-1. Open `Multimodal_Image_Text_Retrieval.ipynb` in Google Colab.
+1. Open `Multimodal_Image_Text_Retrieval_A3014774.ipynb` in Google Colab.
 2. Select **Runtime → Change runtime type → T4 GPU**.
-3. Run all cells sequentially from the beginning.
-4. The notebook downloads the dataset and pretrained encoders, performs preprocessing, extracts features, trains the three models, and generates comparison results.
+3. Run all cells sequentially.
+4. The notebook automatically downloads the dataset and pretrained encoders, extracts features, trains the models, and generates evaluation results.
 
-An internet connection is required for the initial downloads.
+Internet access is required for the initial downloads.
 
 ### Required Libraries
 
@@ -74,28 +89,34 @@ An internet connection is required for the initial downloads.
 - Matplotlib
 - Pillow
 
-The notebook installs missing dependencies automatically.
+The notebook checks for missing dependencies and installs them when necessary.
 
 ## Generated Outputs
 
-The notebook saves its outputs in `multimodal_project/`, including:
+Results are saved under `multimodal_project/`, including:
 
-- Shared dataset splits and extracted features
+- Dataset splits and preprocessing audit
+- ResNet-50 and BERT feature files
 - Trained model checkpoints
-- Training histories and hyperparameter configurations
-- Retrieval metrics and overfitting analysis
-- Comparison graphs and failure examples
-- ZIP archives containing generated results
+- Training histories and configuration files
+- Retrieval metrics and model comparisons
+- Training and generalisation graphs
+- Retrieval failure examples
+- Exported ZIP archives
 
-The original COCO images and large generated feature caches are not included in this repository. They can be regenerated by executing the notebook.
+The original COCO images and large generated feature files are not included in the GitHub repository. They can be regenerated by running the notebook.
 
 ## Limitations
 
-The experiments use a 5,000-image COCO subset and frozen pretrained encoders. Results may not generalise to larger datasets or different domains. Image–caption ambiguity, dataset bias, and differences between training and validation performance are additional limitations.
+The experiments use a subset of COCO 2017 and frozen pretrained encoders. Performance may differ on larger datasets or images from other domains.
+
+InfoNCE and Triplet Ranking exhibit training–validation performance gaps, indicating potential overfitting. Early Fusion shows substantially weaker retrieval performance.
+
+Caption ambiguity, dataset representation bias, and computational requirements also limit generalisation and potential deployment.
 
 ## Project Information
 
 **Course:** Multimodal Machine Learning  
 **Assignment:** Project 2.2 – Implementation Report and Presentation  
 **Institution:** Adelaide University  
-**Project:** Group 11
+**Submission:** Individual Project
